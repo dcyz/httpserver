@@ -13,7 +13,7 @@ func getPasswd(user string) (string, bool) {
 	var passwd string
 	err := confs.DB.QueryRow(`SELECT passwd FROM authtable WHERE user=?`, user).Scan(&passwd)
 	if err != nil {
-		logs.ErrorLog(err, `Auth: 密码获取失败`)
+		logs.ErrorLog(err, `密码获取失败`)
 		return ``, false
 	}
 	return passwd, true
