@@ -5,7 +5,6 @@ import (
 	"httpserver/handler"
 	"httpserver/logs"
 	"httpserver/middleware/myjwt"
-	"httpserver/middleware/tls"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -13,17 +12,16 @@ import (
 
 func init() {
 	confs.WdInit()
-	logs.LogInit()
 	confs.NetInit()
 	confs.DBInit()
 	confs.CertInit()
+	logs.LogInit()
 }
 
 func main() {
 	//gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
-	r.Use(tls.TLS())
-	router := r.Group(`/auth`, myjwt.JWTAuth())
+	router := r.Group(`/`, myjwt.JWTAuth())
 	{
 		router.POST("/upload", handler.Upload)
 		router.GET("/download", handler.Download)
@@ -32,8 +30,7 @@ func main() {
 	r.GET(`/signin`, handler.SignIn)
 
 	n := confs.NetInfo
-	err := r.RunTLS(n.Host+`:`+strconv.Itoa(int(n.Port)),
-		`./cert.pem`, `./key.pem`)
+	err := r.RunTLS(n.Host+`:`+strconv.Itoa(int(n.Port)), `./cert.pem`, `./key.pem`)
 	if err != nil {
 		logs.ErrorPanic(err, `/httpserver.go`)
 	}
