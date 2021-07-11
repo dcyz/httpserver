@@ -1,11 +1,12 @@
 package tls
 
 import (
-	"github.com/gin-gonic/gin"
-	"github.com/unrolled/secure"
 	"httpserver/confs"
 	"httpserver/logs"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/unrolled/secure"
 )
 
 func TLS() gin.HandlerFunc {
@@ -18,7 +19,7 @@ func TLS() gin.HandlerFunc {
 		err := secureMiddleware.Process(c.Writer, c.Request)
 		// If there was an error, do not continue.
 		if err != nil {
-			logs.ErrorPanic(err, `/middleware/tls.go -> TLS 异常`)
+			logs.ErrorPanic(err, `TLS 异常`)
 		}
 		c.Next()
 	}
