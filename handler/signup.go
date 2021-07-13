@@ -2,7 +2,6 @@ package handler
 
 import (
 	"httpserver/confs"
-	"httpserver/logs"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -33,7 +32,6 @@ func SignUp(c *gin.Context) {
 	// 将user:passwd插入到数据库中
 	_, err = confs.DB.Exec(`INSERT INTO authtable(user, passwd) VALUES (?,?)`, u.User, u.Passwd)
 	if err != nil {
-		logs.ErrorLog(err, `Signup: DB Exec Failure`)
 		c.JSON(http.StatusOK, gin.H{
 			"status": -1,
 			"msg":    `注册处理异常`,
