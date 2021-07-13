@@ -6,19 +6,20 @@ import (
 	"httpserver/logs"
 	"io/ioutil"
 	"strconv"
+	"strings"
 
 	_ "github.com/go-sql-driver/mysql"
 )
 
 type DBConf struct {
-	IP     string
-	Port   uint32
-	User   string
-	Passwd string
-	DBName string
-
+	IP           string
+	Port         uint32
+	User         string
+	Passwd       string
+	DBName       string
 	MaxOpenConns int
 	MaxIdleConns int
+	Tables       map[string](map[string]string)
 }
 
 // DBInfo 全局变量，数据库属性
@@ -77,13 +78,17 @@ func Connect() {
 }
 
 func CreateTables() {
-	_, err := DB.Exec(`create table if not exists authtable(user TEXT, passwd TEXT)`)
-	if err != nil {
-		logs.ErrorPanic(err, `创建数据表authtable错误`)
+	tables := DBInfo.Tables
+	for tableName := range tables {
+		execStr := `create table if not exists ` + tableName + `(`
+		columns := make([]string, 0, len(tables[tableName]))
+		for column := range tables[tableName] {
+			columns = append(columns, column+` `+tables[tableName][column])
+		}
+		execStr = execStr + strings.Join(columns, `, `) + `)`
+		_, err := DB.Exec(execStr)
+		if err != nil {
+			logs.ErrorPanic(err, `创建数据表`+tableName+`错误`)
+		}
 	}
-	_, err = DB.Exec(`create table if not exists datatable(data BLOB)`)
-	if err != nil {
-		logs.ErrorPanic(err, `创建数据表datatable错误`)
-	}
-
 }
