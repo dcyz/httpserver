@@ -2,13 +2,14 @@ package handler
 
 import (
 	"errors"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/gin-gonic/gin"
 	"httpserver/confs"
 	"httpserver/middleware/myjwt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 )
 
 // userInfo 用户信息
@@ -63,8 +64,8 @@ func SignIn(c *gin.Context) {
 // generateToken 根据userInfo生成Token
 func generateToken(c *gin.Context, u userInfo) {
 	// 新建JWT实例
-	j := &myjwt.JWT{
-		SigningKey: []byte(`httpserver`),
+	k := &myjwt.KeyStruct{
+		Key: []byte(myjwt.GetSignKey()),
 	}
 	// 新建CustomClaims实例
 	claims := myjwt.CustomClaims{
@@ -72,11 +73,11 @@ func generateToken(c *gin.Context, u userInfo) {
 		StandardClaims: jwt.StandardClaims{
 			NotBefore: time.Now().Unix() - 1000,
 			ExpiresAt: time.Now().Unix() + 3600,
-			Issuer:    "httpserver",
+			Issuer:    "dcyz",
 		},
 	}
 	// 生成新的Token
-	token, err := j.CreateToken(claims)
+	token, err := k.CreateToken(claims)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"status": -1,

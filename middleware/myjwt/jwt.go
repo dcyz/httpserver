@@ -2,20 +2,20 @@ package myjwt
 
 import (
 	"errors"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"strings"
-	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 )
 
 // 关于Token验证的若干Error
 var (
-	TokenExpired     = errors.New("Token已过期")
-	TokenNotValidYet = errors.New("Token认证错误")
-	TokenMalformed   = errors.New("Token格式错误")
-	TokenInvalid     = errors.New("Token不合法")
-	SignKey          = "httpserver"
+	ErrTokenExpired     = errors.New("Token已过期")
+	ErrTokenNotValidYet = errors.New("Token认证错误")
+	ErrTokenMalformed   = errors.New("Token格式错误")
+	ErrTokenInvalid     = errors.New("Token不合法")
+	SignKey             = "httpserver"
 )
 
 // CustomClaims Token的载荷，此处只有User一个字段
@@ -24,9 +24,9 @@ type CustomClaims struct {
 	jwt.StandardClaims
 }
 
-// JWT 签名结构
-type JWT struct {
-	SigningKey []byte
+// KeyStruct 签名结构
+type KeyStruct struct {
+	Key []byte
 }
 
 // GetSignKey 获取SignKey
@@ -65,7 +65,7 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 		// 新建JWT实例
-		j := &JWT{
+		j := &KeyStruct{
 			[]byte(GetSignKey()),
 		}
 		// 解析token信息
@@ -84,21 +84,21 @@ func JWTAuth() gin.HandlerFunc {
 }
 
 // ParseToken用于解析Token，如果错误则返回（nil，err）
-func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
+func (k *KeyStruct) ParseToken(tokenString string) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return j.SigningKey, nil
+		return k.Key, nil
 	})
 	// 若干Error
 	if err != nil {
 		if v, ok := err.(*jwt.ValidationError); ok {
 			if v.Errors == jwt.ValidationErrorMalformed {
-				return nil, TokenMalformed
+				return nil, ErrTokenMalformed
 			} else if v.Errors == jwt.ValidationErrorExpired {
-				return nil, TokenExpired
+				return nil, ErrTokenExpired
 			} else if v.Errors == jwt.ValidationErrorNotValidYet {
-				return nil, TokenNotValidYet
+				return nil, ErrTokenNotValidYet
 			} else {
-				return nil, TokenInvalid
+				return nil, ErrTokenInvalid
 			}
 		}
 	}
@@ -106,30 +106,30 @@ func (j *JWT) ParseToken(tokenString string) (*CustomClaims, error) {
 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
 		return claims, nil
 	}
-	return nil, TokenInvalid
+	return nil, ErrTokenInvalid
 }
 
 // CreateToken 生成一个token
-func (j *JWT) CreateToken(claims CustomClaims) (string, error) {
+func (k *KeyStruct) CreateToken(claims CustomClaims) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(j.SigningKey)
+	return token.SignedString(k.Key)
 }
 
 // RefreshToken 更新token
-func (j *JWT) RefreshToken(tokenString string) (string, error) {
-	jwt.TimeFunc = func() time.Time {
-		return time.Unix(0, 0)
-	}
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return j.SigningKey, nil
-	})
-	if err != nil {
-		return ``, err
-	}
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		jwt.TimeFunc = time.Now
-		claims.StandardClaims.ExpiresAt = time.Now().Add(2 * time.Hour).Unix()
-		return j.CreateToken(*claims)
-	}
-	return ``, TokenInvalid
-}
+// func (k *KeyStruct) RefreshToken(tokenString string) (string, error) {
+// 	jwt.TimeFunc = func() time.Time {
+// 		return time.Unix(0, 0)
+// 	}
+// 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
+// 		return k.Key, nil
+// 	})
+// 	if err != nil {
+// 		return ``, err
+// 	}
+// 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
+// 		jwt.TimeFunc = time.Now
+// 		claims.StandardClaims.ExpiresAt = time.Now().Add(2 * time.Hour).Unix()
+// 		return k.CreateToken(*claims)
+// 	}
+// 	return ``, ErrTokenInvalid
+// }
