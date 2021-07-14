@@ -7,7 +7,7 @@ import (
 )
 
 type NetConf struct {
-	Host string
+	IP   string
 	Port uint32
 }
 
@@ -15,7 +15,7 @@ var NetInfo *NetConf
 
 func NetInit() {
 	NetInfo = &NetConf{
-		Host: `127.0.0.1`,
+		IP:   `127.0.0.1`,
 		Port: 8080,
 	}
 	NetInfo.Reload()
