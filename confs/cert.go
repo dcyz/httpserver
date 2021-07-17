@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"math/big"
+	"net"
 	"os"
 	"time"
 )
@@ -52,6 +53,7 @@ func CertInit() {
 			NotAfter:     time.Now().Add(365 * 24 * time.Hour),
 			KeyUsage:     x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
 			ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+			IPAddresses:  []net.IP{net.ParseIP("39.107.92.179")},
 		}
 
 		pk, _ := rsa.GenerateKey(rand.Reader, 2048)

@@ -27,7 +27,7 @@ func main() {
 		router.GET("/download", handler.Download)
 	}
 	r.POST(`/signup`, handler.SignUp)
-	r.GET(`/signin`, handler.SignIn)
+	r.POST(`/signin`, handler.SignIn)
 
 	n := confs.NetInfo
 	err := r.RunTLS(n.IP+`:`+strconv.Itoa(int(n.Port)), `./cert.pem`, `./key.pem`)
