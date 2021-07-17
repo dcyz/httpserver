@@ -93,6 +93,6 @@ func generateToken(c *gin.Context, u userInfo) {
 	c.JSON(http.StatusOK, gin.H{
 		"status": 0,
 		"msg":    `登录成功`,
-		"auth":   data,
+		"data":   data,
 	})
 }
