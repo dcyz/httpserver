@@ -7,18 +7,20 @@ import (
 )
 
 type NetConf struct {
-	BindIP   string
-	PublicIP string
-	Port     uint32
+	BindIP    string
+	PublicIP  string
+	PrivateIP string
+	Port      uint32
 }
 
 var NetInfo *NetConf
 
 func NetInit() {
 	NetInfo = &NetConf{
-		BindIP:   `127.0.0.1`,
-		PublicIP: `127.0.0.1`,
-		Port:     8080,
+		BindIP:    `127.0.0.1`,
+		PublicIP:  `127.0.0.1`,
+		PrivateIP: `127.0.0.1`,
+		Port:      8080,
 	}
 	NetInfo.Reload()
 }
