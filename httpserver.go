@@ -30,7 +30,7 @@ func main() {
 	r.POST(`/signin`, handler.SignIn)
 
 	n := confs.NetInfo
-	err := r.RunTLS(n.IP+`:`+strconv.Itoa(int(n.Port)), `./cert.pem`, `./key.pem`)
+	err := r.RunTLS(n.BindIP+`:`+strconv.Itoa(int(n.Port)), `./cert.pem`, `./key.pem`)
 	if err != nil {
 		logs.ErrorPanic(err, `/httpserver.go`)
 	}
