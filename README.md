@@ -8,33 +8,30 @@
 
 ```json
 {
-  "IP": "192.168.43.234",
+  "BindIP": "xxx.xxx.xxx.xxx",
+  "PrivateIP": "xxx.xxx.xxx.xxx",
+  "PublicIP": "xxx.xxx.xxx.xxx",
   "Port": 443
 }
 ```
 
 **db.json**：
 
-> Tables的内部结构为{表名: {字段名: 类型, 字段名: 类型 ...}, 表名: {...} ...}
-
 ```json
 {
   "SQL": "mysql",
-  "IP": "192.168.43.123",
+  "IP": "xxx.xxx.xxx.xxx",
   "Port": 3306,
-  "User": "root",
-  "Passwd": "12345678",
-  "DBName": "myDB",
+  "User": "xxxx",
+  "Passwd": "xxx",
+  "DBName": "xxxxxx",
   "MaxOpenConns": 100,
   "MaxIdleConns": 100,
   "Tables": {
-    
-    "table1": {
-      "column1": "TEXT",
-      "column2": "INT"
-    },
-    "table2": {
-      "column1": "BLOB"
+    "authtable": {
+      "uid": "INT AUTO_INCREMENT PRIMARY KEY",
+      "user": "TEXT NOT NULL",
+      "passwd": "TEXT NOT NULL"
     }
   }
 }
@@ -42,4 +39,5 @@
 
 ## 运行httpserver
 
-在根目录下执行命令`make clean`和`make run`即可运行服务器
+- 在根目录下执行命令`make clean`和`make run`在本地运行服务器
+- 在根目录下执行命令`sh docker-build.sh`构建Docker Image，然后执行`sh docker-run.sh`在Docker容器内运行服务器
