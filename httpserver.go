@@ -4,7 +4,6 @@ import (
 	"httpserver/confs"
 	"httpserver/handler"
 	"httpserver/logs"
-	"httpserver/middleware/myjwt"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -21,11 +20,8 @@ func init() {
 func main() {
 	//gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
-	router := r.Group(`/`, myjwt.JWTAuth())
-	{
-		router.POST("/upload", handler.Upload)
-		router.GET("/download", handler.Download)
-	}
+	// TODO 在此处进行其他路由
+	//router := r.Group(`/`, myjwt.JWTAuth()){}
 	r.POST(`/signup`, handler.SignUp)
 	r.POST(`/signin`, handler.SignIn)
 
