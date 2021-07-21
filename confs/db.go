@@ -3,10 +3,11 @@ package confs
 import (
 	"database/sql"
 	"encoding/json"
-	"httpserver/logs"
 	"io/ioutil"
 	"strconv"
 	"strings"
+
+	"github.com/kascas/httpserver/logs"
 
 	_ "github.com/go-sql-driver/mysql"
 )

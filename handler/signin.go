@@ -2,11 +2,12 @@ package handler
 
 import (
 	"errors"
-	"httpserver/confs"
-	"httpserver/middleware/myjwt"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/kascas/httpserver/confs"
+	"github.com/kascas/httpserver/middleware/myjwt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"

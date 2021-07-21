@@ -1,10 +1,11 @@
 package main
 
 import (
-	"httpserver/confs"
-	"httpserver/handler"
-	"httpserver/logs"
 	"strconv"
+
+	"github.com/kascas/httpserver/confs"
+	"github.com/kascas/httpserver/handler"
+	"github.com/kascas/httpserver/logs"
 
 	"github.com/gin-gonic/gin"
 )
