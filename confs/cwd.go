@@ -1,9 +1,10 @@
 package confs
 
 import (
-	"httpserver/logs"
 	"os"
 	"path"
+
+	"github.com/kascas/httpserver/logs"
 )
 
 func WdInit() {

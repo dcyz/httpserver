@@ -1,8 +1,9 @@
 package handler
 
 import (
-	"httpserver/confs"
 	"net/http"
+
+	"github.com/kascas/httpserver/confs"
 
 	"github.com/gin-gonic/gin"
 )

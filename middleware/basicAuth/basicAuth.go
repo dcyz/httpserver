@@ -1,10 +1,11 @@
 package basicAuth
 
 import (
-	"httpserver/confs"
-	"httpserver/logs"
 	"net/http"
 	"strings"
+
+	"github.com/kascas/httpserver/confs"
+	"github.com/kascas/httpserver/logs"
 
 	"github.com/gin-gonic/gin"
 )

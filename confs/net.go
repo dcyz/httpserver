@@ -2,8 +2,9 @@ package confs
 
 import (
 	"encoding/json"
-	"httpserver/logs"
 	"io/ioutil"
+
+	"github.com/kascas/httpserver/logs"
 )
 
 type NetConf struct {
