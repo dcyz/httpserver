@@ -1,4 +1,4 @@
-module httpserver
+module github.com/dcyz/httpserver
 
 go 1.16
 
