@@ -2,8 +2,11 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
+	"github.com/golang-jwt/jwt"
 	"github.com/kascas/httpserver/confs"
+	"github.com/kascas/httpserver/middleware/myjwt"
 
 	"github.com/gin-gonic/gin"
 )
@@ -39,9 +42,40 @@ func SignUp(c *gin.Context) {
 		})
 		return
 	}
-	// 回写用户
+	autoSignIn(c, u)
+}
+
+func autoSignIn(c *gin.Context, u userInfo) {
+	// 新建JWT实例
+	k := &myjwt.KeyStruct{
+		Key: []byte(myjwt.GetSignKey()),
+	}
+	// 新建CustomClaims实例
+	claims := myjwt.CustomClaims{
+		User: u.User,
+		StandardClaims: jwt.StandardClaims{
+			NotBefore: time.Now().Unix() - 1000,
+			ExpiresAt: time.Now().Unix() + 3600,
+			Issuer:    "dcyz",
+		},
+	}
+	// 生成新的Token
+	token, err := k.CreateToken(claims)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": -1,
+			"msg":    err.Error(),
+		})
+		return
+	}
+	// 将token发送给用户
+	data := auth{
+		Token:    token,
+		userInfo: u,
+	}
 	c.JSON(http.StatusOK, gin.H{
 		"status": 0,
-		"msg":    `注册成功`,
+		"msg":    `注册成功，正在登录`,
+		"data":   data,
 	})
 }
