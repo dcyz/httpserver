@@ -1,43 +1,58 @@
 package myjwt
 
 import (
+	"crypto/rand"
 	"errors"
+	"math/big"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
+	"github.com/kascas/httpserver/logs"
 )
 
-// 关于Token验证的若干Error
-var (
-	ErrTokenExpired     = errors.New("Token已过期")
-	ErrTokenNotValidYet = errors.New("Token认证错误")
-	ErrTokenMalformed   = errors.New("Token格式错误")
-	ErrTokenInvalid     = errors.New("Token不合法")
-	SignKey             = "httpserver"
-)
-
-// CustomClaims Token的载荷，此处只有User一个字段
-type CustomClaims struct {
+// UserClaims Token的载荷，此处只有User一个字段
+type UserClaims struct {
 	User string `json:"user"`
 	jwt.StandardClaims
 }
 
 // KeyStruct 签名结构
-type KeyStruct struct {
-	Key []byte
+type SignKeys struct {
+	AccessTokenSignKey  []byte
+	RefreshTokenSignKey []byte
 }
 
-// GetSignKey 获取SignKey
-func GetSignKey() string {
-	return SignKey
+var keys *SignKeys
+var (
+	ErrTokenExpired     = errors.New("TokenExpired")
+	ErrTokenNotValidYet = errors.New("TokenNotValid")
+	ErrTokenMalformed   = errors.New("TokenMalformed")
+	ErrTokenInvalid     = errors.New("TokenInvalid")
+)
+
+func init() {
+	keys = &SignKeys{
+		AccessTokenSignKey:  RandomBytes(64),
+		RefreshTokenSignKey: RandomBytes(64),
+	}
 }
 
-// SetSignKey 设置SignKey
-func SetSignKey(key string) string {
-	SignKey = key
-	return SignKey
+func RandomBytes(size int) []byte {
+	min, max := new(big.Int), new(big.Int)
+	min.Lsh(big.NewInt(1), uint(size*8-1))
+	max.Lsh(big.NewInt(1), uint(size*8))
+	for {
+		tmp, err := rand.Int(rand.Reader, max)
+		if err != nil {
+			logs.ErrorPanic(err, "JWTSecretInitFailed")
+		}
+		if tmp.Cmp(min) >= 0 {
+			return tmp.Bytes()
+		}
+	}
 }
 
 // JWTAuth 中间件，检查Token是否合法
@@ -49,27 +64,23 @@ func JWTAuth() gin.HandlerFunc {
 		if authHeader == "" {
 			c.JSON(http.StatusOK, gin.H{
 				"status": -1,
-				"msg":    "无Token信息",
+				"msg":    "AuthHeaderNotFound",
 			})
 			c.Abort()
 			return
 		}
 		// 将authHeader分割，如果不符合Bearer Auth则丢弃该请求
 		parts := strings.SplitN(authHeader, " ", 2)
-		if !(len(parts) == 2 && parts[0] == "Bearer") {
+		if len(parts) != 2 || parts[0] != "Bearer" {
 			c.JSON(http.StatusOK, gin.H{
 				"status": -1,
-				"msg":    "AuthHeader格式错误",
+				"msg":    "AuthHeaderMalformed",
 			})
 			c.Abort()
 			return
 		}
-		// 新建JWT实例
-		j := &KeyStruct{
-			[]byte(GetSignKey()),
-		}
 		// 解析token信息
-		claims, err := j.ParseToken(parts[1])
+		claims, err := parseToken(parts[1])
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"status": -1,
@@ -83,53 +94,45 @@ func JWTAuth() gin.HandlerFunc {
 	}
 }
 
-// ParseToken用于解析Token，如果错误则返回（nil，err）
-func (k *KeyStruct) ParseToken(tokenString string) (*CustomClaims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return k.Key, nil
+// parseToken用于解析Token，如果错误则返回（nil，err）
+func parseToken(tokenString string) (*jwt.Claims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return keys.AccessTokenSignKey, nil
 	})
 	// 若干Error
 	if err != nil {
 		if v, ok := err.(*jwt.ValidationError); ok {
-			if v.Errors == jwt.ValidationErrorMalformed {
+			switch v.Errors {
+			case jwt.ValidationErrorMalformed:
 				return nil, ErrTokenMalformed
-			} else if v.Errors == jwt.ValidationErrorExpired {
+			case jwt.ValidationErrorExpired:
 				return nil, ErrTokenExpired
-			} else if v.Errors == jwt.ValidationErrorNotValidYet {
+			case jwt.ValidationErrorNotValidYet:
 				return nil, ErrTokenNotValidYet
-			} else {
+			default:
 				return nil, ErrTokenInvalid
 			}
 		}
 	}
 	// 如果token合法，则返回claims
-	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-		return claims, nil
+	if token.Valid {
+		return &token.Claims, nil
+	} else {
+		return nil, ErrTokenInvalid
 	}
-	return nil, ErrTokenInvalid
 }
 
-// CreateToken 生成一个token
-func (k *KeyStruct) CreateToken(claims CustomClaims) (string, error) {
+// GetAccessToken 生成一个token
+func GetAccessToken(user string) (string, error) {
+	claims := UserClaims{
+		User: user,
+		StandardClaims: jwt.StandardClaims{
+			NotBefore: time.Now().Add(-1 * time.Minute).Unix(),
+			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+			IssuedAt:  time.Now().Unix(),
+			Issuer:    "kascas",
+		},
+	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString(k.Key)
+	return token.SignedString(keys.AccessTokenSignKey)
 }
-
-// RefreshToken 更新token
-// func (k *KeyStruct) RefreshToken(tokenString string) (string, error) {
-// 	jwt.TimeFunc = func() time.Time {
-// 		return time.Unix(0, 0)
-// 	}
-// 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(token *jwt.Token) (interface{}, error) {
-// 		return k.Key, nil
-// 	})
-// 	if err != nil {
-// 		return ``, err
-// 	}
-// 	if claims, ok := token.Claims.(*CustomClaims); ok && token.Valid {
-// 		jwt.TimeFunc = time.Now
-// 		claims.StandardClaims.ExpiresAt = time.Now().Add(2 * time.Hour).Unix()
-// 		return k.CreateToken(*claims)
-// 	}
-// 	return ``, ErrTokenInvalid
-// }
