@@ -80,7 +80,7 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 		// 解析token信息
-		claims, err := parseToken(parts[1])
+		claims, types, err := parseToken(parts[1])
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"status": -1,
@@ -90,35 +90,60 @@ func JWTAuth() gin.HandlerFunc {
 			return
 		}
 		// 继续交由下一个路由处理,并将解析出的信息传递下去
-		c.Set("claims", claims)
+		c.Set("TokenClaims", claims)
+		c.Set("TokenType", types)
 	}
 }
 
 // parseToken用于解析Token，如果错误则返回（nil，err）
-func parseToken(tokenString string) (*jwt.Claims, error) {
-	token, err := jwt.ParseWithClaims(tokenString, &UserClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return keys.AccessTokenSignKey, nil
+func parseToken(tokenString string) (*UserClaims, int, error) {
+	claims := new(UserClaims)
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+		types, ok := token.Header["type"]
+		if !ok {
+			return nil, errors.New("TokenTypeEmpty")
+		}
+		typeFloat, ok := types.(float64)
+		if ok {
+			switch int(typeFloat) {
+			case 0:
+				return keys.AccessTokenSignKey, nil
+			case 1:
+				return keys.RefreshTokenSignKey, nil
+			default:
+				return nil, errors.New("TokenTypeNotFound")
+			}
+		} else {
+			return nil, errors.New("TokenTypeError")
+		}
 	})
 	// 若干Error
 	if err != nil {
 		if v, ok := err.(*jwt.ValidationError); ok {
 			switch v.Errors {
 			case jwt.ValidationErrorMalformed:
-				return nil, ErrTokenMalformed
+				return nil, -1, ErrTokenMalformed
 			case jwt.ValidationErrorExpired:
-				return nil, ErrTokenExpired
+				return nil, -1, ErrTokenExpired
 			case jwt.ValidationErrorNotValidYet:
-				return nil, ErrTokenNotValidYet
+				return nil, -1, ErrTokenNotValidYet
 			default:
-				return nil, ErrTokenInvalid
+				return nil, -1, errors.New(v.Inner.Error())
 			}
 		}
 	}
 	// 如果token合法，则返回claims
 	if token.Valid {
-		return &token.Claims, nil
+		switch int(token.Header["type"].(float64)) {
+		case 0:
+			return claims, 0x0, nil
+		case 1:
+			return claims, 0x1, nil
+		default:
+			return nil, -1, errors.New("TokenTypeErrorWhenValid")
+		}
 	} else {
-		return nil, ErrTokenInvalid
+		return nil, -1, ErrTokenInvalid
 	}
 }
 
@@ -128,11 +153,28 @@ func GetAccessToken(user string) (string, error) {
 		User: user,
 		StandardClaims: jwt.StandardClaims{
 			NotBefore: time.Now().Add(-1 * time.Minute).Unix(),
-			ExpiresAt: time.Now().Add(time.Hour * 24 * 7).Unix(),
+			ExpiresAt: time.Now().Add(time.Minute * 5).Unix(),
 			IssuedAt:  time.Now().Unix(),
 			Issuer:    "kascas",
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["type"] = 0x0
 	return token.SignedString(keys.AccessTokenSignKey)
+}
+
+// GetAccessToken 生成一个token
+func GetRefreshToken(user string) (string, error) {
+	claims := UserClaims{
+		User: user,
+		StandardClaims: jwt.StandardClaims{
+			NotBefore: time.Now().Add(-1 * time.Minute).Unix(),
+			ExpiresAt: time.Now().Add(time.Hour * 24 * 30).Unix(),
+			IssuedAt:  time.Now().Unix(),
+			Issuer:    "kascas",
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	token.Header["type"] = 0x1
+	return token.SignedString(keys.RefreshTokenSignKey)
 }
