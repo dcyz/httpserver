@@ -19,8 +19,8 @@ type userInfo struct {
 
 // auth 认证
 type auth struct {
-	Token string
-	User  string
+	AccessToken  string
+	RefreshToken string
 }
 
 // check 根据数据库的authtable表验证输入的user-passwd是否正确
@@ -61,7 +61,15 @@ func SignIn(c *gin.Context) {
 		return
 	} else {
 		// 如果check无错，则生成token
-		token, err := myjwt.GetAccessToken(u.User)
+		accessToken, err := myjwt.GetAccessToken(u.User)
+		if err != nil {
+			c.JSON(http.StatusOK, gin.H{
+				"status": -1,
+				"msg":    err.Error(),
+			})
+			return
+		}
+		refreshToken, err := myjwt.GetRefreshToken(u.User)
 		if err != nil {
 			c.JSON(http.StatusOK, gin.H{
 				"status": -1,
@@ -73,8 +81,8 @@ func SignIn(c *gin.Context) {
 			"status": 0,
 			"msg":    `LoginSuccess`,
 			"data": auth{
-				Token: token,
-				User:  u.User,
+				AccessToken:  accessToken,
+				RefreshToken: refreshToken,
 			},
 		})
 	}
