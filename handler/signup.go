@@ -44,7 +44,16 @@ func SignUp(c *gin.Context) {
 }
 
 func autoSignIn(c *gin.Context, u userInfo) {
-	token, err := myjwt.GetAccessToken(u.User)
+	// 如果check无错，则生成token
+	accessToken, err := myjwt.GetAccessToken(u.User)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{
+			"status": -1,
+			"msg":    err.Error(),
+		})
+		return
+	}
+	refreshToken, err := myjwt.GetRefreshToken(u.User)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"status": -1,
@@ -54,10 +63,10 @@ func autoSignIn(c *gin.Context, u userInfo) {
 	}
 	c.JSON(http.StatusOK, gin.H{
 		"status": 0,
-		"msg":    `LoginSucess`,
+		"msg":    `LoginSuccess`,
 		"data": auth{
-			Token: token,
-			User:  u.User,
+			AccessToken:  accessToken,
+			RefreshToken: refreshToken,
 		},
 	})
 }
