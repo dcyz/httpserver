@@ -17,8 +17,15 @@ clean:
 	$(GOCLEAN)
 	rm -f $(BINARY_NAME)
 	rm -f $(BINARY_UNIX)
+	rm -f error.log
+
+allclean:
+	$(GOCLEAN)
+	rm -f $(BINARY_NAME)
+	rm -f $(BINARY_UNIX)
 	rm -f cert.pem key.pem
 	rm -f error.log
+
 run:
 	$(GOBUILD) -o $(BINARY_NAME) -v
 	./$(BINARY_NAME)

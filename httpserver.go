@@ -28,7 +28,7 @@ func main() {
 	router := r.Group(`/user`, myjwt.JWTAuth())
 	{
 		router.POST(`/upload`, handler.Upload)
-		router.GET(`/refresh`, handler.Refresh)
+		router.GET(`/refresh`, func(c *gin.Context) {})
 	}
 
 	n := confs.NetInfo

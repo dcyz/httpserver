@@ -19,7 +19,7 @@ type UserClaims struct {
 	jwt.StandardClaims
 }
 
-// KeyStruct 签名结构
+// SignKeys 不同token的签名密钥
 type SignKeys struct {
 	AccessTokenSignKey  []byte
 	RefreshTokenSignKey []byte
@@ -31,6 +31,9 @@ var (
 	ErrTokenNotValidYet = errors.New("TokenNotValid")
 	ErrTokenMalformed   = errors.New("TokenMalformed")
 	ErrTokenInvalid     = errors.New("TokenInvalid")
+
+	StatusAccessTokenExpired  = 1
+	StatusRefreshTokenExpired = 2
 )
 
 func init() {
@@ -62,7 +65,7 @@ func JWTAuth() gin.HandlerFunc {
 		authHeader := c.Request.Header.Get(`Authorization`)
 		// 如果Token为空，则返回-1状态码
 		if authHeader == "" {
-			c.JSON(http.StatusOK, gin.H{
+			c.JSON(http.StatusUnauthorized, gin.H{
 				"status": -1,
 				"msg":    "AuthHeaderNotFound",
 			})
@@ -72,7 +75,7 @@ func JWTAuth() gin.HandlerFunc {
 		// 将authHeader分割，如果不符合Bearer Auth则丢弃该请求
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.JSON(http.StatusOK, gin.H{
+			c.JSON(http.StatusUnauthorized, gin.H{
 				"status": -1,
 				"msg":    "AuthHeaderMalformed",
 			})
@@ -81,69 +84,109 @@ func JWTAuth() gin.HandlerFunc {
 		}
 		// 解析token信息
 		claims, types, err := parseToken(parts[1])
-		if err != nil {
-			c.JSON(http.StatusOK, gin.H{
-				"status": -1,
-				"msg":    err.Error(),
-			})
-			c.Abort()
-			return
+		if err == nil {
+			switch types {
+			case 1:
+				// 继续交由下一个路由处理,并将解析出的信息传递下去
+				c.Set("TokenClaims", claims)
+				c.Set("TokenType", types)
+				return
+			case 2:
+				token, innerErr := GetAccessToken(claims.User)
+				if innerErr != nil {
+					c.JSON(http.StatusOK, gin.H{
+						"status": -1,
+						"msg":    innerErr.Error(),
+					})
+				} else {
+					c.JSON(http.StatusOK, gin.H{
+						"status": 0,
+						"msg":    "RefreshSucess",
+						"data":   token,
+					})
+				}
+				c.Abort()
+				return
+			}
+		} else {
+			// 如果AccessToken过期，则返回状态码498提醒更新
+			if types == 1 && err == ErrTokenExpired {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"status": StatusAccessTokenExpired,
+					"msg":    err.Error(),
+				})
+				c.Abort()
+				return
+			} else if types == 2 && err == ErrTokenExpired {
+				// 如果RefreshTokenToken过期，则返回状态码499提醒更新
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"status": StatusRefreshTokenExpired,
+					"msg":    err.Error(),
+				})
+				c.Abort()
+				return
+			} else {
+				// 其他错误返回err字符串
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"status": -1,
+					"msg":    err.Error(),
+				})
+				c.Abort()
+				return
+			}
 		}
-		// 继续交由下一个路由处理,并将解析出的信息传递下去
-		c.Set("TokenClaims", claims)
-		c.Set("TokenType", types)
+
 	}
 }
 
-// parseToken用于解析Token，如果错误则返回（nil，err）
+// parseToken用于解析Token
 func parseToken(tokenString string) (*UserClaims, int, error) {
+	var types int
 	claims := new(UserClaims)
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-		types, ok := token.Header["type"]
+		// 判断Token的类型，根据类型返回不同的signkey
+		t, ok := token.Header["type"]
 		if !ok {
 			return nil, errors.New("TokenTypeEmpty")
 		}
-		typeFloat, ok := types.(float64)
+		typeFloat, ok := t.(float64)
 		if ok {
 			switch int(typeFloat) {
-			case 0:
-				return keys.AccessTokenSignKey, nil
 			case 1:
+				types = 1
+				return keys.AccessTokenSignKey, nil
+			case 2:
+				types = 2
 				return keys.RefreshTokenSignKey, nil
 			default:
-				return nil, errors.New("TokenTypeNotFound")
+				types = -1
+				return nil, errors.New("TokenTypeError")
 			}
 		} else {
+			types = -1
 			return nil, errors.New("TokenTypeError")
 		}
 	})
-	// 若干Error
+	// 返回err时进行细化
 	if err != nil {
 		if v, ok := err.(*jwt.ValidationError); ok {
 			switch v.Errors {
 			case jwt.ValidationErrorMalformed:
-				return nil, -1, ErrTokenMalformed
+				return nil, types, ErrTokenMalformed
 			case jwt.ValidationErrorExpired:
-				return nil, -1, ErrTokenExpired
+				return nil, types, ErrTokenExpired
 			case jwt.ValidationErrorNotValidYet:
-				return nil, -1, ErrTokenNotValidYet
+				return nil, types, ErrTokenNotValidYet
 			default:
-				return nil, -1, errors.New(v.Inner.Error())
+				return nil, types, errors.New(v.Inner.Error())
 			}
 		}
 	}
-	// 如果token合法，则返回claims
+	// 如果token合法，则返回claims，token种类（err为nil）
 	if token.Valid {
-		switch int(token.Header["type"].(float64)) {
-		case 0:
-			return claims, 0x0, nil
-		case 1:
-			return claims, 0x1, nil
-		default:
-			return nil, -1, errors.New("TokenTypeErrorWhenValid")
-		}
+		return claims, types, nil
 	} else {
-		return nil, -1, ErrTokenInvalid
+		return nil, types, ErrTokenInvalid
 	}
 }
 
@@ -152,14 +195,11 @@ func GetAccessToken(user string) (string, error) {
 	claims := UserClaims{
 		User: user,
 		StandardClaims: jwt.StandardClaims{
-			NotBefore: time.Now().Add(-1 * time.Minute).Unix(),
-			ExpiresAt: time.Now().Add(time.Minute * 5).Unix(),
-			IssuedAt:  time.Now().Unix(),
-			Issuer:    "kascas",
+			ExpiresAt: time.Now().Add(time.Second * 30).Unix(),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token.Header["type"] = 0x0
+	token.Header["type"] = 1
 	return token.SignedString(keys.AccessTokenSignKey)
 }
 
@@ -168,13 +208,10 @@ func GetRefreshToken(user string) (string, error) {
 	claims := UserClaims{
 		User: user,
 		StandardClaims: jwt.StandardClaims{
-			NotBefore: time.Now().Add(-1 * time.Minute).Unix(),
-			ExpiresAt: time.Now().Add(time.Hour * 24 * 30).Unix(),
-			IssuedAt:  time.Now().Unix(),
-			Issuer:    "kascas",
+			ExpiresAt: time.Now().Add(time.Minute * 2).Unix(),
 		},
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	token.Header["type"] = 0x1
+	token.Header["type"] = 2
 	return token.SignedString(keys.RefreshTokenSignKey)
 }
