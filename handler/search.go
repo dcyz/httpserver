@@ -6,19 +6,19 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type Points struct {
-	Lat float64
-	Lng float64
+type AreaStat struct {
+	Lat   float64
+	Lng   float64
+	Width float64
+	Count int
 }
 
+var MyStat []AreaStat
+
 func Search(c *gin.Context) {
-	var point Points
-	if c.BindJSON(&point) != nil {
-		c.JSON(http.StatusOK, gin.H{
-			"status": -1,
-			"msg":    `DataParseFailed`,
-		})
-		return
-	}
-	
+	c.JSON(http.StatusOK, gin.H{
+		"status": 0,
+		"msg":    "数据获取成功",
+		"data":   MyStat,
+	})
 }
