@@ -14,11 +14,11 @@ var count int
 var bitLen, block, scale int
 var f, p, q float64
 
-func SetupStat() {
+func setupStat() {
 	count = 0
-	args := handler.MyQueries
-	f, p, q = args.Args["f"], args.Args["p"], args.Args["q"]
-	block, scale = len(args.Areas), args.Scale
+	queries := handler.MyQueries
+	f, p, q = queries.Args["f"], queries.Args["p"], queries.Args["q"]
+	block, scale = len(queries.Areas), queries.Scale
 	bitLen = block * scale
 	stat = make([]float64, bitLen)
 }
@@ -29,7 +29,7 @@ func testBit(b []byte, pos int) bool {
 	return (b[outer] & mask) != 0
 }
 
-func StatPerData(data []byte) {
+func statPerData(data []byte) {
 	for i := 0; i < bitLen; i++ {
 		if testBit(data, i) {
 			stat[i]++
@@ -38,7 +38,7 @@ func StatPerData(data []byte) {
 	count++
 }
 
-func Compute() {
+func compute() {
 	n := float64(count)
 	var sum float64 = 0
 	for i := 0; i < bitLen; i++ {
@@ -50,19 +50,9 @@ func Compute() {
 	}
 }
 
-func GetResultOfLoc(loc int) float64 {
-	return stat[loc]
-}
-
-func GetResult() []float64 {
-	return stat
-}
-
-func DataAnalyze() {
+func dataAnalyze() []int {
 	total := 0
-	stat := make([]float64, block)
-
-	var result []float64
+	result := make([]int, block)
 
 	rows, err := confs.DB.Query("SELECT * FROM datatable")
 	if err != nil {
@@ -72,10 +62,10 @@ func DataAnalyze() {
 		var data []byte
 		var user string
 		rows.Scan(&user, &data)
-		StatPerData(data)
+		statPerData(data)
 		total++
 	}
-	Compute()
+	compute()
 	defer func() {
 		err := rows.Close()
 		if err != nil {
@@ -83,14 +73,30 @@ func DataAnalyze() {
 		}
 	}()
 
-	result = GetResult()
 	for i := 0; i < block; i++ {
-		for j := 0; j < scale; j++ {
-			stat[i] += result[i+block*j]
+		for j := 1; j < scale; j++ {
+			stat[i] += stat[i+block*j]
 		}
 		//actual[i] = actual[i] / float64(total)
-		stat[i] = math.Round(stat[i] * float64(total))
+		result[i] = int(math.Round(stat[i] * float64(total)))
 	}
-	fmt.Println("\n>>> 统计密度分布：", stat)
+	fmt.Println("\n>>> 统计密度分布：", result, count, total)
 	fmt.Println()
+	return result
+}
+
+func storeStatData(result []int) {
+	handler.MyStat = make([]handler.AreaStat, block)
+	for i := 0; i < block; i++ {
+		handler.MyStat[i].Lng = handler.MyQueries.Areas[i][0]
+		handler.MyStat[i].Lat = handler.MyQueries.Areas[i][1]
+		handler.MyStat[i].Width = handler.MyQueries.Areas[i][2]
+		handler.MyStat[i].Count = result[i]
+	}
+}
+
+func StatRun() {
+	setupStat()
+	result := dataAnalyze()
+	storeStatData(result)
 }

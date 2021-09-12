@@ -36,11 +36,11 @@ func main() {
 		router.POST(`/upload`, handler.Upload)
 		router.GET(`/refresh`, func(c *gin.Context) {})
 		router.GET(`/query`, handler.Query)
+		router.GET(`/search`, handler.Search)
 	}
 
-	rappor.SetupStat()
 	c := cron.New()
-	c.AddFunc("@every 1m", rappor.DataAnalyze)
+	c.AddFunc("@every 1m", rappor.StatRun)
 	c.Start()
 
 	n := confs.NetInfo
