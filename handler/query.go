@@ -29,11 +29,20 @@ func init() {
 			return
 		}
 	}
+
+	data, err := ioutil.ReadFile(`./.conf/query.json`)
+	if err != nil {
+		logs.ErrorPanic(err, err.Error())
+		return
+	}
+	err = json.Unmarshal(data, MyQueries)
+	if err != nil {
+		logs.ErrorPanic(err, err.Error())
+		return
+	}
 }
 
 func Query(c *gin.Context) {
-	queries := &Queries{}
-
 	data, err := ioutil.ReadFile(`./.conf/query.json`)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
@@ -42,7 +51,7 @@ func Query(c *gin.Context) {
 		})
 		return
 	}
-	err = json.Unmarshal(data, queries)
+	err = json.Unmarshal(data, MyQueries)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"status": -1,
@@ -50,11 +59,10 @@ func Query(c *gin.Context) {
 		})
 		return
 	}
-	MyQueries = queries
 
 	c.JSON(http.StatusOK, gin.H{
 		"status": 0,
 		"msg":    "Published Areas",
-		"data":   queries,
+		"data":   MyQueries,
 	})
 }

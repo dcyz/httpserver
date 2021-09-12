@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -15,7 +14,6 @@ func Upload(c *gin.Context) {
 	var data []byte
 
 	data, err := c.GetRawData()
-	log.Println(data)
 	if err != nil {
 		c.JSON(http.StatusOK, gin.H{
 			"status": -1,
