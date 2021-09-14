@@ -7,10 +7,11 @@ import (
 )
 
 type AreaStat struct {
-	Lat   float64
-	Lng   float64
-	Width float64
-	Count int
+	StartLat float64
+	StartLng float64
+	EndLat   float64
+	EndLng   float64
+	Count    int
 }
 
 var MyStat []AreaStat

@@ -7,3 +7,4 @@ httpserver
 /.conf/
 httpserver.code-workspace
 /.vscode/
+statuslog.log

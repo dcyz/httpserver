@@ -88,9 +88,10 @@ func dataAnalyze() []int {
 func storeStatData(result []int) {
 	handler.MyStat = make([]handler.AreaStat, block)
 	for i := 0; i < block; i++ {
-		handler.MyStat[i].Lng = handler.MyQueries.Areas[i][0]
-		handler.MyStat[i].Lat = handler.MyQueries.Areas[i][1]
-		handler.MyStat[i].Width = handler.MyQueries.Areas[i][2]
+		handler.MyStat[i].StartLng = handler.MyQueries.Areas[i][0]
+		handler.MyStat[i].StartLat = handler.MyQueries.Areas[i][1]
+		handler.MyStat[i].EndLng = handler.MyQueries.Areas[i][2]
+		handler.MyStat[i].EndLat = handler.MyQueries.Areas[i][3]
 		handler.MyStat[i].Count = result[i]
 	}
 }
