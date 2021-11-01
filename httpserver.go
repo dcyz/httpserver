@@ -35,7 +35,6 @@ func main() {
 	{
 		router.POST(`/upload`, handler.Upload)
 		router.GET(`/refresh`, func(c *gin.Context) {})
-		router.GET(`/query`, handler.Query)
 		router.GET(`/search`, handler.Search)
 	}
 

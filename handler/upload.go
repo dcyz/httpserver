@@ -21,7 +21,7 @@ func Upload(c *gin.Context) {
 		})
 		return
 	}
-	bitLen := len(MyQueries.Areas) * MyQueries.Scale
+	bitLen := 0
 	if int(math.Ceil(float64(bitLen)/8)) != len(data) {
 		c.JSON(http.StatusOK, gin.H{
 			"status": -1,
