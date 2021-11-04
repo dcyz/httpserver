@@ -13,6 +13,8 @@ import (
 	"github.com/robfig/cron"
 )
 
+var T float64
+
 func init() {
 	confs.WdInit()
 	confs.NetInit()
@@ -33,13 +35,14 @@ func main() {
 	r.Use(statuslog.Statuslog)
 	router := r.Group(`/user`, myjwt.JWTAuth())
 	{
-		router.POST(`/upload`, handler.Upload)
+		router.GET(`/upload`, handler.Upload)
 		router.GET(`/refresh`, func(c *gin.Context) {})
 		router.GET(`/search`, handler.Search)
+		router.GET(`/query`, handler.Query)
 	}
 
 	c := cron.New()
-	c.AddFunc("@every 1m", rappor.StatRun)
+	c.AddFunc("@every 1m", rappor.StatTask)
 	c.Start()
 
 	n := confs.NetInfo
