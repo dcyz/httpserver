@@ -1,58 +1,73 @@
 package rappor
 
 import (
+	"bytes"
+	"encoding/gob"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math"
+	"time"
 
 	"github.com/kascas/httpserver/confs"
-	"github.com/kascas/httpserver/handler"
+	"github.com/kascas/httpserver/logs"
 )
 
 var stat []float64
 var count int
-var bitLen, block, scale int
-var f, p, q float64
+var blocks, random int
+var f, p, q, k float64
+
+type Areas struct {
+	Areas [][]float64        `json:"areas"`
+	Args  map[string]float64 `json:"args"`
+}
+
+var Result []int
+var tmp []int
+var MyAreas Areas
 
 func setupStat() {
 	count = 0
-	queries := handler.MyQueries
-	f, p, q = queries.Args["f"], queries.Args["p"], queries.Args["q"]
-	block, scale = len(queries.Areas), queries.Scale
-	bitLen = block * scale
-	stat = make([]float64, bitLen)
+
+	raw, err := ioutil.ReadFile("./.conf/data.json")
+	if err != nil {
+		logs.ErrorPanic(err, `data.json读写失败`)
+	}
+	// 解序列化数据
+	err = json.Unmarshal(raw, &MyAreas)
+	if err != nil {
+		logs.ErrorPanic(err, `data.json解序列化失败`)
+	}
+
+	f, p, q, k = MyAreas.Args["f"], MyAreas.Args["p"], MyAreas.Args["q"], MyAreas.Args["k"]
+	blocks = len(MyAreas.Areas)
+	random = int(float64(blocks) * k)
+	stat = make([]float64, blocks)
+	fmt.Println("")
+	fmt.Println(">>> 当前时间:", time.Now())
+	fmt.Println(">>> 统计参数:", f, p, q, k, blocks, random)
 }
 
-func testBit(b []byte, pos int) bool {
-	outer, inner := pos>>3, pos&0x7
-	mask := (byte)(1 << (7 - inner))
-	return (b[outer] & mask) != 0
-}
-
-func statPerData(data []byte) {
-	for i := 0; i < bitLen; i++ {
-		if testBit(data, i) {
-			stat[i]++
-		}
+func statPerData(index []int) {
+	for i := 0; i < len(index); i++ {
+		stat[index[i]]++
 	}
 	count++
 }
 
 func compute() {
 	n := float64(count)
-	var sum float64 = 0
-	for i := 0; i < bitLen; i++ {
-		stat[i] = 1.0 / (1 - f) * ((stat[i]-p*n)/(q-p) - (f*n)/2)
-		sum += stat[i]
-	}
-	for i := 0; i < bitLen; i++ {
-		stat[i] /= sum
+	k := float64(random) / float64(blocks)
+	// var sum float64 = 0
+	for i := 0; i < blocks; i++ {
+		stat[i] = (stat[i] - k*(p+f*q/2-f*p/2)*n) / (1 - f) / (q - p)
 	}
 }
 
-func dataAnalyze() []int {
-	total := 0
-	result := make([]int, block)
+func dataAnalyze() {
+	tmp = make([]int, blocks)
 
 	rows, err := confs.DB.Query("SELECT * FROM datatable")
 	if err != nil {
@@ -61,9 +76,11 @@ func dataAnalyze() []int {
 	for rows.Next() {
 		var data []byte
 		var user string
+		var index []int
 		rows.Scan(&user, &data)
-		statPerData(data)
-		total++
+
+		gob.NewDecoder(bytes.NewReader(data)).Decode(&index)
+		statPerData(index)
 	}
 	compute()
 	defer func() {
@@ -73,31 +90,15 @@ func dataAnalyze() []int {
 		}
 	}()
 
-	for i := 0; i < block; i++ {
-		for j := 1; j < scale; j++ {
-			stat[i] += stat[i+block*j]
-		}
-		//actual[i] = actual[i] / float64(total)
-		result[i] = int(math.Round(stat[i] * float64(total)))
+	for i := 0; i < blocks; i++ {
+		tmp[i] = int(math.Round(stat[i]))
 	}
-	fmt.Println("\n>>> 统计密度分布：", result, count, total)
-	fmt.Println()
-	return result
+	Result = tmp
+	fmt.Println(">>> 统计密度分布：", Result)
+	fmt.Println("")
 }
 
-func storeStatData(result []int) {
-	handler.MyStat = make([]handler.AreaStat, block)
-	for i := 0; i < block; i++ {
-		handler.MyStat[i].StartLng = handler.MyQueries.Areas[i][0]
-		handler.MyStat[i].StartLat = handler.MyQueries.Areas[i][1]
-		handler.MyStat[i].EndLng = handler.MyQueries.Areas[i][2]
-		handler.MyStat[i].EndLat = handler.MyQueries.Areas[i][3]
-		handler.MyStat[i].Count = result[i]
-	}
-}
-
-func StatRun() {
+func StatTask() {
 	setupStat()
-	result := dataAnalyze()
-	storeStatData(result)
+	dataAnalyze()
 }
