@@ -67,7 +67,6 @@ func compute() {
 }
 
 func dataAnalyze() {
-	Result = make([]int, blocks)
 	tmp = make([]int, blocks)
 
 	rows, err := confs.DB.Query("SELECT * FROM datatable")
